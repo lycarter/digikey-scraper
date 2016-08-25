@@ -2,6 +2,10 @@ from lxml import html
 import requests
 import time
 
+import secrets  # My own secrets file, contains Octopart API key
+
+import json
+
 def timing(f):
     def wrap(*args):
         time1 = time.time()
@@ -16,14 +20,14 @@ class DigikeyScraper():
     self.qtyPerPage = qtyPerPage
     self.parts = []
     for i in range(numPages):
-      self.parts.extend(self.getPartNums(i))
+      self.parts.extend(self.getPartNums(i+1))
 
   def htmlFromNum(self, pageNum):
     return 'http://www.digikey.com/product-search/en/discrete-semiconductor-products/transistors-fets-mosfets-single/1376381/page/%d?quantity=10&pageSize=%d' % (pageNum, self.qtyPerPage)
 
   @timing
   def getPartNums(self, pageNum):
-    page = requests.get(htmlFromNum(pageNum))
+    page = requests.get(self.htmlFromNum(pageNum))
     tree = html.fromstring(page.content)
     parts = []
     for i in range(self.qtyPerPage):
@@ -34,4 +38,24 @@ class DigikeyScraper():
         break
     return parts
 
-DigikeyScraper(500, 83)
+class Octopart():
+  def __init__(self, apiKey):
+    self._apiKey = apiKey
+
+  def getPart(self, partNum):
+    url = 'http://octopart.com/api/v3/parts/match?'
+    url += 'apikey=%s' % self._apiKey
+    url += '&queries=[{"mpn":"%s"}]' % partNum
+    url += '&pretty_print=true'
+
+    print 'making query to %s' % url
+
+    page = requests.get(url)
+    response = json.loads(page.content)
+    print json.dumps(response, sort_keys=True, indent=4)
+
+scraper = DigikeyScraper(10, 1)
+
+octo = Octopart(secrets.getOctopartApi())
+
+octo.getPart(scraper.parts[0])
